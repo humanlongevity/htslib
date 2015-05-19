@@ -30,8 +30,8 @@ CPPFLAGS = -I.
 # TODO: probably update cram code to make it compile cleanly with -Wc++-compat
 CFLAGS   = -g -Wall -O2
 EXTRA_CFLAGS_PIC = -fpic
-LDFLAGS  =
-LDLIBS   =
+LDFLAGS  = 
+LDLIBS   = -lcurl
 
 # For now these don't work too well as samtools also needs to know to
 # add -lbz2 and -llzma if linking against the static libhts.a library.
@@ -149,11 +149,13 @@ print-version:
 LIBHTS_OBJS = \
 	kfunc.o \
 	knetfile.o \
+	ks3file.o \
 	kstring.o \
 	bgzf.o \
 	faidx.o \
 	hfile.o \
 	hfile_net.o \
+	hfile_s3.o \
 	hts.o \
 	regidx.o \
 	sam.o \
@@ -229,9 +231,11 @@ libhts.dylib: $(LIBHTS_OBJS)
 bgzf.o bgzf.pico: bgzf.c $(htslib_hts_h) $(htslib_bgzf_h) $(htslib_hfile_h) htslib/khash.h
 kstring.o kstring.pico: kstring.c htslib/kstring.h
 knetfile.o knetfile.pico: knetfile.c htslib/knetfile.h
+ks3file.o ks3file.pico: ks3file.c htslib/ks3file.h
 hfile.o hfile.pico: hfile.c $(htslib_hfile_h) $(hfile_internal_h)
 hfile_irods.o hfile_irods.pico: hfile_irods.c $(hfile_internal_h)
 hfile_net.o hfile_net.pico: hfile_net.c $(hfile_internal_h) htslib/knetfile.h
+hfile_s3.o hfile_s3.pico: hfile_net.c $(hfile_internal_h) htslib/ks3file.h
 hts.o hts.pico: hts.c version.h $(htslib_hts_h) $(htslib_bgzf_h) $(cram_h) $(htslib_hfile_h) htslib/khash.h htslib/kseq.h htslib/ksort.h
 vcf.o vcf.pico: vcf.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_hfile_h) htslib/khash.h htslib/kseq.h htslib/kstring.h
 sam.o sam.pico: sam.c $(htslib_sam_h) $(htslib_bgzf_h) $(cram_h) $(htslib_hfile_h) htslib/khash.h htslib/kseq.h htslib/kstring.h
