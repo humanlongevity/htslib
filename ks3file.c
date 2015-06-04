@@ -145,7 +145,6 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 	const char *p, *q;
 	kurl_t *ku;
 	int fd = -1, is_file = 1, failed = 0;
-    printf(url);
 	p = strstr(url, "://");
 	if (p && *p) {
 		for (q = url; q != p; ++q)
@@ -515,7 +514,6 @@ s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const ch
 	kputsn(".s3.amazonaws.com", 17, &str);
 	kputsn(obj, strlen(obj), &str);
 	a.url = str.s;
-    printf(a.url);
 	// compose the Date line
 	str.l = str.m = 0; str.s = 0;
 	t = time(0);
