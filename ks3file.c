@@ -256,11 +256,18 @@ off_t kurl_seek(kurl_t *ku, off_t offset, int whence) // FIXME: sometimes when s
 	if (whence == SEEK_SET) new_off = offset;
 	else if (whence == SEEK_CUR) new_off += cur_off + offset;
 	else if (whence == SEEK_END && kurl_isfile(ku)) new_off = lseek(ku->fd, offset, SEEK_END), seek_end = 1;
-	else { // not supported whence
-		ku->err = KURL_INV_WHENCE;
-		return -1;
+	// If file is remote and attempting to seek from end of file,
+	// Look up the file size and subtract the offset
+	else if (whence == SEEK_END && !kurl_isfile(ku))
+	{
+		double file_size;
+		// I dont bother checking for the -1 error here, as the offset is negative when SEEK_END is used,
+		// So this will be caught by the negative absolute offset check below
+		curl_easy_getinfo(ku->curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD , &file_size);
+		new_off = file_size + offset;
+		seek_end = 1;
 	}
-	if (new_off < 0) { // negtive absolute offset
+	if (new_off < 0) { // Check for negative offset and raise error
 		ku->err = KURL_SEEK_OUT;
 		return -1;
 	}
