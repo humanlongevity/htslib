@@ -27,7 +27,7 @@ extern "C" {
     ssize_t kurl_read(kurl_t *ku, void *buf, size_t nbytes);
     off_t kurl_seek(kurl_t *ku, off_t offset, int whence);
     int kurl_buflen(kurl_t *ku, int len);
-    
+    void s3_reauth(kurl_t *ku);
     off_t kurl_tell(const kurl_t *ku);
     int kurl_eof(const kurl_t *ku);
     int kurl_fileno(const kurl_t *ku);

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <curl/curl.h>
+#include <time.h> 
 #include "htslib/ks3file.h"
 
 
@@ -35,6 +36,8 @@ struct kurl_t {
 	int done_reading; // true if we can read nothing from the file; buffer may not be empty even if done_reading is set
 	int err;      // error code
 	struct curl_slist *hdr;
+	const char * s3_url; // Store the S3 URL
+	time_t auth_time; // The time that the last authentication token was generated
 };
 
 typedef struct {
@@ -56,14 +59,40 @@ static int prepare(kurl_t *ku)
 	if (kurl_isfile(ku)) {
 		if (lseek(ku->fd, ku->off0, SEEK_SET) != ku->off0)
 			return -1;
-	} else { // FIXME: for S3, we need to re-authorize
-		int rc;
-		rc = curl_multi_remove_handle(ku->multi, ku->curl);
-		rc = curl_easy_setopt(ku->curl, CURLOPT_RESUME_FROM, ku->off0);
-		rc = curl_multi_add_handle(ku->multi, ku->curl);
+	} else {
+		curl_multi_remove_handle(ku->multi, ku->curl);
+		s3_reauth(ku);
+		curl_easy_setopt(ku->curl, CURLOPT_RESUME_FROM, ku->off0);
+		curl_multi_add_handle(ku->multi, ku->curl);
 	}
 	ku->p_buf = ku->l_buf = 0; // empty the buffer
 	return 0;
+}
+
+void s3_reauth(kurl_t *ku)
+{
+	// This recalculates the S3 authentication headers
+
+	// Work out how many seconds since last authentication header generated
+	time_t current_time;
+	time(&current_time);
+	double dif = difftime (current_time,ku->auth_time); 
+
+	// If more than 3 minutes since last authentication (the AWS token times out every 5)
+	if (dif > 180)
+	{
+		// Generate the S3 Authentication
+		extern s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const char *fn);
+		s3aux_t a = s3_parse(ku->s3_url, 0,0,0);
+
+		// Rebuild the headers with the new authentication information
+		curl_slist_free_all(ku->hdr);
+		ku->hdr = NULL;
+		ku->hdr = curl_slist_append(ku->hdr, a.date);
+		ku->hdr = curl_slist_append(ku->hdr, a.auth);
+		curl_easy_setopt(ku->curl, CURLOPT_HTTPHEADER, ku->hdr);
+		time(&ku->auth_time);
+	}
 }
 
 static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *data) // callback required by cURL
@@ -154,6 +183,7 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 	if (is_file && (fd = open(url, O_RDONLY)) < 0) return 0;
 
 	ku = (kurl_t*)calloc(1, sizeof(kurl_t));
+	ku->s3_url = strdup(url); // store the original s3 url
 	ku->fd = is_file? fd : -1;
 	if (!kurl_isfile(ku)) {
 		ku->multi = curl_multi_init();
@@ -167,6 +197,7 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 			}
 			ku->hdr = curl_slist_append(ku->hdr, a.date);
 			ku->hdr = curl_slist_append(ku->hdr, a.auth);
+			time(&ku->auth_time);
 			curl_easy_setopt(ku->curl, CURLOPT_URL, a.url);
 			curl_easy_setopt(ku->curl, CURLOPT_HTTPHEADER, ku->hdr);
 			free(a.date); free(a.auth); free(a.url);
